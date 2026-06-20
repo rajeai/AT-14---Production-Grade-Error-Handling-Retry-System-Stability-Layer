@@ -1,0 +1,2137 @@
+{
+  "name": "AT : 14 - Production-Grade Error Handling, Retry & System Stability Layer",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://www.zohoapis.in/crm/v2/Leads/search?criteria=(Phone:equals:{{ $json.phone }})",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1296,
+        224
+      ],
+      "id": "7bbaf693-6fcc-4663-9196-38046bb7c198",
+      "name": "HTTP Request-Search Lead - Phone",
+      "credentials": {
+        "oAuth2Api": {
+          "id": "jWDyGreWeJ5ebPDV",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1a404d0b-8650-4603-a147-c4ebe9b1128f",
+              "leftValue": "={{ $json.data?.length || 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1104,
+        224
+      ],
+      "id": "49cb5352-b7cf-47c8-972c-41348d1bf4c0",
+      "name": "If-Check Lead Exists"
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "Company": "QuickSolveAI",
+        "lastName": "={{ $('Normalize Input').item.json.name }}",
+        "additionalFields": {
+          "customFields": {
+            "customFields": [
+              {
+                "fieldId": "Reply_Status",
+                "value": "WhatsApp Reply"
+              },
+              {
+                "fieldId": "Reply_History",
+                "value": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0]?.Reply_History || '') +\n'\\n[' + new Date().toLocaleString() + '] USER: ' +\n$node[\"Normalize Input\"].json.message\n}}"
+              },
+              {
+                "fieldId": "Reply_Count",
+                "value": "=1"
+              },
+              {
+                "fieldId": "Last_Reply_Time",
+                "value": "={{ new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000))    .toISOString()    .split('.')[0]    .replace('Z', '+05:30') }}"
+              }
+            ]
+          },
+          "Description": "=={{ \n\"Priority: \" + $json.priority + \n\" | Intent: \" + $json.intent + \n\" | Review: \" + $json.needs_review \n}}",
+          "Email": "={{ $json.email_extracted }}",
+          "Full_Name": "={{ $('Normalize Input').item.json.name }}",
+          "Industry": "={{ $json.tag }}",
+          "Lead_Source": "={{ $('Normalize Input').item.json.source }}",
+          "Lead_Status": "=={{ $json.lead_status }}",
+          "Phone": "={{ $('Normalize Input').item.json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        784
+      ],
+      "id": "f6e419ee-1c10-43d6-ae43-67fee0bcfb80",
+      "name": "Create a lead",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "ySpGjAUufdOcNkoc",
+          "name": "Zoho OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "update",
+        "leadId": "={{ $node[\"HTTP Request-Search Lead - Phone\"].json.data[0].id }}",
+        "updateFields": {
+          "customFields": {
+            "customFields": [
+              {
+                "fieldId": "Reply_Status",
+                "value": "WhatsApp reply"
+              },
+              {
+                "fieldId": "Reply_History",
+                "value": "={{ \n($node[\"HTTP Request-Search Lead - Phone\"].json.data?.[0]?.Reply_History || '') \n+ '\\n[' + new Date().toLocaleString() + '] ' \n+ $('Normalize Input').item.json.message \n}}"
+              },
+              {
+                "fieldId": "Reply_Count",
+                "value": "={{ ($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_Count || 0) + 1 }}"
+              },
+              {
+                "fieldId": "Last_Reply_Time",
+                "value": "={{ new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000))    .toISOString()    .split('.')[0]    .replace('Z', '+05:30') }}"
+              }
+            ]
+          },
+          "Description": "={{ \n\"Priority: \" + $json.priority + \n\" | Intent: \" + $json.intent + \n\" | Review: \" + $json.needs_review \n}}",
+          "Email": "={{ \n$json.email_extracted ? String($json.email_extracted) : undefined \n}}",
+          "Industry": "={{ $json.tag }}",
+          "Last_Name": "={{ $('Normalize Input').item.json.name }}",
+          "Lead_Source": "={{ $('Normalize Input').item.json.source }}",
+          "Lead_Status": "={{ $json.lead_status }}",
+          "Phone": "={{ $('Normalize Input').item.json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        -240
+      ],
+      "id": "a82c3660-03bd-41af-a84e-48d8ca579133",
+      "name": "Update a lead",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "ySpGjAUufdOcNkoc",
+          "name": "Zoho OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-incoming",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1536,
+        240
+      ],
+      "id": "aca6aaaa-3dee-4fc8-baf5-8d218c29fcfd",
+      "name": "Webhook-WhatsApp Reply",
+      "webhookId": "1e99a454-4a55-4ee4-8d5b-089051e6f3bf"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c49e339a-4f49-4fd4-bc95-ad3d19eb916b",
+              "name": "intent",
+              "value": "={{ $json.reply }}",
+              "type": "string"
+            },
+            {
+              "id": "377e24e1-1521-49a8-ad89-a8fbe934012b",
+              "name": "email_extracted",
+              "value": "={{ JSON.parse($json.output[0].content[0].text).email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -400,
+        -240
+      ],
+      "id": "e92d32f5-8a82-4b76-8842-03f991c7f9a2",
+      "name": "Edit Fields-update LEAD"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36025e6d-987d-48bf-9af0-d1f4b2adb5c5",
+              "name": "lead_status",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"Hot\" :\n$json.intent === \"Inquiry\" ? \"Open\" :\n$json.intent === \"Complaint\" ? \"Escalated\" :\n$json.intent === \"Not Interested\" ? \"Closed\" :\n\"Open\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "3e407558-f156-43b2-9832-d235105df658",
+              "name": "priority",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"High\" :\n$json.intent === \"Complaint\" ? \"High\" :\n$json.intent === \"Inquiry\" ? \"Medium\" :\n$json.intent === \"Not Interested\" ? \"Low\" :\n\"Medium\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "5c61a5f7-458c-41e6-8905-fb30b54d1859",
+              "name": "tag",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"sales\" :\n$json.intent === \"Inquiry\" ? \"inquiry\" :\n$json.intent === \"Complaint\" ? \"support\" :\n$json.intent === \"Not Interested\" ? \"lost\" :\n\"review\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "19793ca1-3257-43cf-9bdb-f08114e310a2",
+              "name": "needs_review",
+              "value": "={{ [\"Interested\",\"Inquiry\",\"Complaint\",\"Not Interested\"].includes($json.intent) ? \"No\" : \"Yes\"}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -208,
+        -240
+      ],
+      "id": "255b5bb9-154a-4d69-9e79-fe967baa1bc6",
+      "name": "Edit Fields-Mapping - update LEAD"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are an intent classification assistant.\n\nClassify the user message into ONE of these:\n- Interested\n- Inquiry\n- Complaint\n- Not Interested\n\nAlso extract email if present.\n\nSTRICT RULES:\n- Always return valid JSON\n- Do NOT return empty values\n- If no email → return null\n- If unclear → choose closest intent\n\nOutput format:\n{\n  \"intent\": \"Interested | Inquiry | Complaint | Not Interested\",\n  \"email\": \"email or null\"\n}\n\n"
+            },
+            {
+              "content": "={{ $('Normalize Input').item.json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -1504,
+        784
+      ],
+      "id": "9cc95ea1-b25a-41ae-adcc-e86e02766aca",
+      "name": "Message a model-create LEAD",
+      "credentials": {
+        "openAiApi": {
+          "id": "lHnVrm81AjgAZNPE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c49e339a-4f49-4fd4-bc95-ad3d19eb916b",
+              "name": "intent",
+              "value": "={{ JSON.parse($json.output[0].content[0].text).intent }}",
+              "type": "string"
+            },
+            {
+              "id": "377e24e1-1521-49a8-ad89-a8fbe934012b",
+              "name": "email_extracted",
+              "value": "={{ JSON.parse($json.output[0].content[0].text).email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1232,
+        784
+      ],
+      "id": "09f0f09d-42d4-45fc-ad64-d21fc1dfe30f",
+      "name": "Edit Fields-create LEAD"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36025e6d-987d-48bf-9af0-d1f4b2adb5c5",
+              "name": "lead_status",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"Hot\" :\n$json.intent === \"Inquiry\" ? \"Open\" :\n$json.intent === \"Complaint\" ? \"Escalated\" :\n$json.intent === \"Not Interested\" ? \"Closed\" :\n\"Open\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "3e407558-f156-43b2-9832-d235105df658",
+              "name": "priority",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"High\" :\n$json.intent === \"Complaint\" ? \"High\" :\n$json.intent === \"Inquiry\" ? \"Medium\" :\n$json.intent === \"Not Interested\" ? \"Low\" :\n\"Medium\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "5c61a5f7-458c-41e6-8905-fb30b54d1859",
+              "name": "tag",
+              "value": "={{ \n$json.intent === \"Interested\" ? \"sales\" :\n$json.intent === \"Inquiry\" ? \"inquiry\" :\n$json.intent === \"Complaint\" ? \"support\" :\n$json.intent === \"Not Interested\" ? \"lost\" :\n\"review\"\n}}",
+              "type": "string"
+            },
+            {
+              "id": "19793ca1-3257-43cf-9bdb-f08114e310a2",
+              "name": "needs_review",
+              "value": "={{ [\"Interested\",\"Inquiry\",\"Complaint\",\"Not Interested\"].includes($json.intent) ? \"No\" : \"Yes\"}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1040,
+        784
+      ],
+      "id": "59e99a26-7ec0-46e7-a317-223d3043d1a5",
+      "name": "Edit Fields-Mapping - create LEAD"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "69c14a52-0a46-495e-8aff-169f8d7f752b",
+              "leftValue": "={{ $node[\"Normalize Input\"].json.message.toLowerCase() }}",
+              "rightValue": "stop",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "e1a2db6e-fd9c-4cef-86e5-2f2987f53cd7",
+              "leftValue": "={{ $node[\"Normalize Input\"].json.message.toLowerCase() }}",
+              "rightValue": "not interested",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "cdd1cea4-1c62-476f-9b9c-a97d5e23aab7",
+              "leftValue": "={{ $node[\"Normalize Input\"].json.message.toLowerCase() }}",
+              "rightValue": "unsubscribe",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        112,
+        -240
+      ],
+      "id": "b80af5bd-07c6-4ea1-b86d-51d87b5c351a",
+      "name": "If- Stop Words"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "69c14a52-0a46-495e-8aff-169f8d7f752b",
+              "leftValue": "={{ $json.message.toLowerCase() }}",
+              "rightValue": "stop",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "e1a2db6e-fd9c-4cef-86e5-2f2987f53cd7",
+              "leftValue": "={{ $json.message.toLowerCase() }}",
+              "rightValue": "not interested",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "cdd1cea4-1c62-476f-9b9c-a97d5e23aab7",
+              "leftValue": "={{ $json.message.toLowerCase() }}",
+              "rightValue": "unsubscribe",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -720,
+        784
+      ],
+      "id": "d88e9040-9e05-4f07-87d2-6517ec3b8598",
+      "name": "If1- Stop Words"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "908e831c-0227-416e-b8a1-38b9ca9c44cb",
+              "leftValue": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_History || \"\")\n.toLowerCase()\n.split('\\n')\n.some(line => \n  line.includes('user:') && \n  line.split('user:')[1]?.trim() === \n  $node[\"Normalize Input\"].json.message.toLowerCase().trim()\n)\n}}",
+              "rightValue": "=",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        -80
+      ],
+      "id": "636b5433-7cdf-4489-b0cc-c9df8e2691aa",
+      "name": "If-Duplicate Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "908e831c-0227-416e-b8a1-38b9ca9c44cb",
+              "leftValue": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_History || \"\")\n.toLowerCase()\n.split('\\n')\n.some(line => \n  line.includes('user:') && \n  line.split('user:')[1]?.trim() === \n  $node[\"Edit Fields-Normalize - WhatsApp\"].json.message.toLowerCase().trim()\n)\n}}",
+              "rightValue": "=",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -576,
+        912
+      ],
+      "id": "b9c9b723-ef97-45e9-8ad8-c03b2bd6b06c",
+      "name": "If1-Duplicate Check"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=You are a WhatsApp sales/support agent.\n\nYour job is to reply to the user message based ONLY on:\n1. Intent\n2. Latest message\n\nIMPORTANT RULES:\n- Keep reply under 25 words\n- Be natural, human, conversational\n- No robotic tone\n- No long explanations\n- No emojis except simple ones (optional)\n- Do NOT repeat user message\n- Do NOT mention intent\n\nINTENT BEHAVIOR:\n\nInterested:\n- Push towards demo or next step\n- Ask for action\n\nInquiry:\n- Give helpful info\n- Ask follow-up question\n\nComplaint:\n- Apologize\n- Show urgency\n- Ask for details\n\nNot Interested:\n- Acknowledge politely\n- Do not push\n\nOUTPUT:\n- Return ONLY plain text reply\n- No JSON\n- No formatting"
+            },
+            {
+              "content": "=Intent: {{ $node[\"Edit Fields-update LEAD\"].json.intent || $node[\"Edit Fields-create LEAD\"].json.intent }}\nMessage: {{ $node[\"Normalize Input\"].json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        400,
+        80
+      ],
+      "id": "970eb4e3-bbcb-4ee4-80ac-b39253624340",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "lHnVrm81AjgAZNPE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a WhatsApp sales/support agent.\n\nYour job is to reply to the user message based ONLY on:\n1. Intent\n2. Latest message\n\nIMPORTANT RULES:\n- Keep reply under 25 words\n- Be natural, human, conversational\n- No robotic tone\n- No long explanations\n- No emojis except simple ones (optional)\n- Do NOT repeat user message\n- Do NOT mention intent\n\nINTENT BEHAVIOR:\n\nInterested:\n- Push towards demo or next step\n- Ask for action\n\nInquiry:\n- Give helpful info\n- Ask follow-up question\n\nComplaint:\n- Apologize\n- Show urgency\n- Ask for details\n\nNot Interested:\n- Acknowledge politely\n- Do not push\n\nOUTPUT:\n- Return ONLY plain text reply\n- No JSON\n- No formatting"
+            },
+            {
+              "content": "=Intent: {{ $node[\"Edit Fields-create LEAD\"].json.intent || $node[\"Edit Fields-create LEAD\"].json.intent }}\nMessage: {{ $node[\"Normalize Input\"].json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -336,
+        928
+      ],
+      "id": "be8edca9-21d4-467a-8d33-261a0a7ab242",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "lHnVrm81AjgAZNPE",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $node[\"Normalize Input\"].json.phone }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.output[0].content[0].text }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        928
+      ],
+      "id": "44413e47-8cac-4d68-b8d1-20ae39a4765a",
+      "name": "Send an SMS/MMS/WhatsApp message1",
+      "credentials": {
+        "twilioApi": {
+          "id": "MO0Rn1JmwZEm4joC",
+          "name": "Twilio account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "update",
+        "leadId": "={{ $node[\"HTTP Request-Search Lead - Phone\"].json.data[0].id }}",
+        "updateFields": {
+          "customFields": {
+            "customFields": [
+              {
+                "fieldId": "Reply_Status",
+                "value": "WhatsApp reply"
+              },
+              {
+                "fieldId": "Reply_History",
+                "value": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_History || '') + \n'\\n[' + new Date().toLocaleString() + '] USER: ' + \n$node[\"Normalize Input\"].json.message +\n'\\n[' + new Date().toLocaleString() + '] BOT: ' + \n$node[\"Message a model\"].json.output[0].content[0].text\n}}"
+              },
+              {
+                "fieldId": "Reply_Count",
+                "value": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_Count || 0) + 1\n}}"
+              },
+              {
+                "fieldId": "Last_Reply_Time",
+                "value": "={{ new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000))    .toISOString()    .split('.')[0]    .replace('Z', '+05:30') }}"
+              }
+            ]
+          },
+          "Description": "={{\n\"Priority: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.priority +\n\" | Intent: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.intent +\n\" | Review: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.needs_review\n}}",
+          "Email": "={{\n$node[\"Edit Fields-update LEAD\"].json.email_extracted \n? String($node[\"Edit Fields-update LEAD\"].json.email_extracted) \n: undefined\n}}",
+          "Industry": "={{ $node[\"Edit Fields-Mapping - update LEAD\"].json.tag }}",
+          "Last_Name": "={{ $node[\"Normalize Input\"].json.name }}",
+          "Lead_Source": "={{ $node[\"Normalize Input\"].json.source }}",
+          "Lead_Status": "={{ $node[\"Edit Fields-Mapping - update LEAD\"].json.lead_status }}",
+          "Phone": "={{ $node[\"Normalize Input\"].json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        832,
+        320
+      ],
+      "id": "890382e9-3b59-4463-93f6-d3022317e792",
+      "name": "Update a lead1",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "ySpGjAUufdOcNkoc",
+          "name": "Zoho OAuth2 API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "159fd5ef-3f17-49ce-9ad7-cd021fd8906e",
+              "name": "execution_id",
+              "value": "={{ Date.now() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1424,
+        -112
+      ],
+      "id": "e65625dd-e77d-4779-87cd-5ecaecd68ab0",
+      "name": "Set - Execution ID"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y",
+          "mode": "list",
+          "cachedResultName": "Execution Logs System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "execution_id": "={{ $json.execution_id }}",
+            "phone": "={{ $('Webhook-WhatsApp Reply').item.json.body.From }}",
+            "message": "={{ $('Webhook-WhatsApp Reply').item.json.body.Body }}",
+            "status": "started",
+            "timestamp": "={{ new Date().toISOString() }}",
+            "retry_count": "0",
+            "system_stage": "received_message"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failed_step",
+              "displayName": "failed_step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "system_stage",
+              "displayName": "system_stage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -1248,
+        -112
+      ],
+      "id": "fc170f89-c33d-4ad1-a586-5158deaa2e31",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "baOw1GfvG2B19B37",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f2d7a601-e19e-4354-9a3b-8557accabcdc",
+              "name": "phone",
+              "value": "={{ $json.phone?.replace(\"whatsapp:\", \"\") || \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "e4270175-17f7-4b25-8f51-77b549dd1560",
+              "name": "message",
+              "value": "={{ $json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "18b7a3b3-a848-46cd-8275-564973650474",
+              "name": "name",
+              "value": "={{ $('Webhook-WhatsApp Reply').item.json.body.ProfileName }}",
+              "type": "string"
+            },
+            {
+              "id": "81fd45da-8960-40d6-9810-c0f9997c01ee",
+              "name": "source",
+              "value": "whatsapp",
+              "type": "string"
+            },
+            {
+              "id": "3e5ae4da-42bf-4881-9041-c1810c38cdd7",
+              "name": "execution_id",
+              "value": "={{ $json.execution_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1088,
+        -112
+      ],
+      "id": "504769c8-1c78-492d-ab85-2ebaeff1048b",
+      "name": "Normalize Input"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Classify message into:\nInterested, Inquiry, Complaint, Not Interested\n\nReturn JSON:\n{ \"intent\": \"...\", \"email\": \"...\" }\n"
+            },
+            {
+              "content": "={{ $('Normalize Input').item.json.message }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -896,
+        208
+      ],
+      "id": "f9ccea6e-e267-44db-b18b-56782a35ac68",
+      "name": "AI - Intent Detection",
+      "credentials": {
+        "openAiApi": {
+          "id": "lHnVrm81AjgAZNPE",
+          "name": "n8n free OpenAI API credits"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8a14581d-3e62-4b24-bc3a-f5ffd0dcb9d7",
+              "name": "reply",
+              "value": "We’re checking your request. Our team will respond shortly",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -528,
+        336
+      ],
+      "id": "078244d8-faba-42e7-8ce7-067e23bf48ce",
+      "name": "Fallback Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "51336637-0382-44b1-833e-7ebdbedbad4a",
+              "name": "reply",
+              "value": "={{ JSON.parse($json.output[0].content[0].text).intent }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        64
+      ],
+      "id": "b7e4dfb0-bb04-43a8-a53f-d74c9456ed20",
+      "name": "Format AI Response"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2e08baa8-1f37-4eaf-8cc4-32bd887060c8",
+              "name": "reply",
+              "value": "={{ $json.reply || $json.output?.[0]?.content?.[0]?.text }}",
+              "type": "string"
+            },
+            {
+              "id": "ce0c4ade-8cbf-4641-9b67-76d234171b32",
+              "name": "phone",
+              "value": "={{ $('Normalize Input').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "a87d12b5-2ac6-4e82-aaee-c19350de3511",
+              "name": "execution_id",
+              "value": "={{ $('Set - Execution ID').item.json.execution_id }}",
+              "type": "string"
+            },
+            {
+              "id": "13e0cdb4-8bdb-4172-9d07-a4e8488aaa85",
+              "name": "retry_count",
+              "value": "={{ $json.retry_count || 0 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -288,
+        336
+      ],
+      "id": "a5fa8488-6e5a-48cf-a9d5-3b68f402ef88",
+      "name": "Init Retry Count"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13e0cdb4-8bdb-4172-9d07-a4e8488aaa85",
+              "name": "retry_count",
+              "value": "={{ ($json.retry_count || 0) + 1 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -368,
+        608
+      ],
+      "id": "60db2e4d-6dca-42a5-8319-5671d6cb948c",
+      "name": "Increment Retry Count"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c5825bc1-2bd0-4ae8-bf71-0d56f6d54c1a",
+              "name": "status",
+              "value": "failed",
+              "type": "string"
+            },
+            {
+              "id": "19d5e760-2415-4b7c-a354-4d09a4684e0e",
+              "name": "error_message",
+              "value": "={{ $json.error_message || \"Twilio send failed\" }}",
+              "type": "string"
+            },
+            {
+              "id": "aea195f4-c036-4f43-9cda-ff30ed2f4d34",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "cd792277-d795-482b-95d3-40af01ccadf5",
+              "name": "failed_step",
+              "value": "Twilio",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        848,
+        784
+      ],
+      "id": "a64ebc6a-f0bb-4e2d-a1f1-4f19ace288c7",
+      "name": "Log Failure"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y",
+          "mode": "list",
+          "cachedResultName": "Execution Logs System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('Normalize Input').item.json.phone }}",
+            "message": "={{ $('Normalize Input').item.json.message }}",
+            "status": "={{ $json.status }}",
+            "error_message": "={{ $json.error_message }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "execution_id": "={{ $('Set - Execution ID').item.json.execution_id }}",
+            "failed_step": "={{ $json.failed_step }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failed_step",
+              "displayName": "failed_step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1472,
+        784
+      ],
+      "id": "afc08139-5279-4dd9-aafb-5afd707e7c9e",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "baOw1GfvG2B19B37",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "rajenemail1@gmail.com",
+        "subject": "❌ WhatsApp Send Failed After Retries",
+        "emailType": "text",
+        "message": "=Message delivery failed after retries.\n\nPhone: {{ $json.phone }}\nReply: {{ $json.message }}\n\n \nError: {{ $json.error_message }}\n\nExecution ID: {{ $json.execution_id }}\nTime: {{ $json.timestamp }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        784
+      ],
+      "id": "b558c9ab-6c97-447e-aba2-495327019b67",
+      "name": "Send a message",
+      "webhookId": "edef0481-4878-432d-8314-6e68bedba135",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RdAQSmlVTq82hqC6",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        848,
+        576
+      ],
+      "id": "6e1a3274-ec91-46b8-b751-11e4b7c5b0d5",
+      "name": "Wait",
+      "webhookId": "27909f3e-6675-4611-b17c-af86d51fdf0c"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "da318c46-d870-47f6-83f4-8a80707cb77b",
+              "name": "status",
+              "value": "partial_success",
+              "type": "string"
+            },
+            {
+              "id": "6e022fc3-64ff-40f6-aa0e-57ef56fe084b",
+              "name": "failed_step",
+              "value": "CRM",
+              "type": "string"
+            },
+            {
+              "id": "bfd3d548-5de0-4e28-bfd5-0be5be754246",
+              "name": "error_message",
+              "value": "={{ $json.error_message || \"CRM update failed after retries\" }}",
+              "type": "string"
+            },
+            {
+              "id": "ad494ff7-968e-4543-a018-9c9c243ef427",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1232,
+        592
+      ],
+      "id": "3a8f7f5b-ea3e-410f-bfec-caa497e5a1a6",
+      "name": "Log CRM Failure (Partial)"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9b624b56-9290-4f1a-83d5-af2bc40dd933",
+              "name": "status",
+              "value": "success",
+              "type": "string"
+            },
+            {
+              "id": "9ea44aa1-2596-4c1c-af25-b035e40e5d33",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        304
+      ],
+      "id": "b1b87ee7-a23e-415f-83bd-7b7f773c3eac",
+      "name": "Log Success"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y",
+          "mode": "list",
+          "cachedResultName": "Execution Logs System",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11NDYXFB0BdNQnXRiO5lGVYgy1L7qeM3N9N8NrEXhy_Y/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $('Normalize Input').item.json.phone }}",
+            "message": "={{ $('Normalize Input').item.json.message }}",
+            "status": "={{ $json.status }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "execution_id": "={{ $('Set - Execution ID').item.json.execution_id }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "execution_id",
+              "displayName": "execution_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message",
+              "displayName": "message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "failed_step",
+              "displayName": "failed_step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "retry_count",
+              "displayName": "retry_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        304
+      ],
+      "id": "d86812d3-7ced-43f8-99ff-41a061049eb9",
+      "name": "Append row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "baOw1GfvG2B19B37",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6b673ae1-5f5a-48ba-afdb-15035624d611",
+              "name": "retry_count",
+              "value": "={{ Number($json.retry_count) }}",
+              "type": "number"
+            },
+            {
+              "id": "ac3a506d-6b56-4822-a3fe-68981b0c377e",
+              "name": "phone",
+              "value": "={{ $('Normalize Input').item.json.phone }}",
+              "type": "string"
+            },
+            {
+              "id": "50a0ddd0-1793-4445-900c-730546d984c7",
+              "name": "reply",
+              "value": "={{ $json.reply || $('Message a model').item.json.output[0].content[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "0402697e-10c3-4f8c-9c66-0758a527b2f9",
+              "name": "execution_id",
+              "value": "={{ $('Set - Execution ID').item.json.execution_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        336
+      ],
+      "id": "81c70936-2f51-4322-bf9e-a9176f2c1994",
+      "name": "Prepare Payload - Initial"
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $json.phone }}",
+        "toWhatsapp": true,
+        "message": "={{ $json.reply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        176,
+        336
+      ],
+      "id": "f5e8b04c-783e-4bc4-bf9c-8d35fa9d92d1",
+      "name": "Send WhatsApp - TRY 1",
+      "credentials": {
+        "twilioApi": {
+          "id": "MO0Rn1JmwZEm4joC",
+          "name": "Twilio account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $('Prepare Payload - Initial').item.json.phone }}",
+        "toWhatsapp": true,
+        "message": "={{ $('Prepare Payload - Initial').item.json.reply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        608
+      ],
+      "id": "dc730b58-cb0d-4668-a656-250b687da5b3",
+      "name": "Send WhatsApp - TRY2",
+      "credentials": {
+        "twilioApi": {
+          "id": "MO0Rn1JmwZEm4joC",
+          "name": "Twilio account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "from": "+14155238886",
+        "to": "={{ $('Prepare Payload - Initial').item.json.phone }}",
+        "toWhatsapp": true,
+        "message": "={{ $('Prepare Payload - Initial').item.json.reply }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [
+        544,
+        688
+      ],
+      "id": "5bafffc5-1ec0-4135-bf21-8d98405fe72b",
+      "name": "Send WhatsApp - TRY3",
+      "credentials": {
+        "twilioApi": {
+          "id": "MO0Rn1JmwZEm4joC",
+          "name": "Twilio account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -560,
+        608
+      ],
+      "id": "696a6c9d-a374-4075-a9ea-01039ed2b806",
+      "name": "Wait1",
+      "webhookId": "9560a206-73d2-4832-9fe1-aad85368b980"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        688
+      ],
+      "id": "1f9c9135-8173-4d05-9f11-730013569b8f",
+      "name": "Wait2",
+      "webhookId": "9560a206-73d2-4832-9fe1-aad85368b980"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "13e0cdb4-8bdb-4172-9d07-a4e8488aaa85",
+              "name": "retry_count",
+              "value": "={{ ($json.retry_count || 0) + 1 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        336,
+        688
+      ],
+      "id": "330e1da1-e0b6-49e3-b61b-eeece29cfdb6",
+      "name": "Increment Retry Count1"
+    },
+    {
+      "parameters": {
+        "resource": "lead",
+        "operation": "update",
+        "leadId": "={{ $node[\"HTTP Request-Search Lead - Phone\"].json.data[0].id }}",
+        "updateFields": {
+          "customFields": {
+            "customFields": [
+              {
+                "fieldId": "Reply_Status",
+                "value": "WhatsApp reply"
+              },
+              {
+                "fieldId": "Reply_History",
+                "value": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_History || '') + \n'\\n[' + new Date().toLocaleString() + '] USER: ' + \n$node[\"Normalize Input\"].json.message +\n'\\n[' + new Date().toLocaleString() + '] BOT: ' + \n$node[\"Message a model\"].json.output[0].content[0].text\n}}"
+              },
+              {
+                "fieldId": "Reply_Count",
+                "value": "={{\n($node[\"HTTP Request-Search Lead - Phone\"].json.data[0].Reply_Count || 0) + 1\n}}"
+              },
+              {
+                "fieldId": "Last_Reply_Time",
+                "value": "={{ new Date(new Date().getTime() + (5.5 * 60 * 60 * 1000))    .toISOString()    .split('.')[0]    .replace('Z', '+05:30') }}"
+              }
+            ]
+          },
+          "Description": "={{\n\"Priority: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.priority +\n\" | Intent: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.intent +\n\" | Review: \" + $node[\"Edit Fields-Mapping - update LEAD\"].json.needs_review\n}}",
+          "Email": "={{\n$node[\"Edit Fields-update LEAD\"].json.email_extracted \n? String($node[\"Edit Fields-update LEAD\"].json.email_extracted) \n: undefined\n}}",
+          "Industry": "={{ $node[\"Edit Fields-Mapping - update LEAD\"].json.tag }}",
+          "Last_Name": "={{ $node[\"Normalize Input\"].json.name }}",
+          "Lead_Source": "={{ $node[\"Normalize Input\"].json.source }}",
+          "Lead_Status": "={{ $node[\"Edit Fields-Mapping - update LEAD\"].json.lead_status }}",
+          "Phone": "={{ $node[\"Normalize Input\"].json.phone }}"
+        }
+      },
+      "type": "n8n-nodes-base.zohoCrm",
+      "typeVersion": 1,
+      "position": [
+        1008,
+        576
+      ],
+      "id": "d4dfd8c5-b72c-42ea-947a-59a5ec34fcfc",
+      "name": "Update a lead1- Retry",
+      "credentials": {
+        "zohoOAuth2Api": {
+          "id": "ySpGjAUufdOcNkoc",
+          "name": "Zoho OAuth2 API"
+        }
+      },
+      "onError": "continueErrorOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request-Search Lead - Phone": {
+      "main": [
+        [
+          {
+            "node": "If-Check Lead Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If-Check Lead Exists": {
+      "main": [
+        [
+          {
+            "node": "AI - Intent Detection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model-create LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook-WhatsApp Reply": {
+      "main": [
+        [
+          {
+            "node": "Set - Execution ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a lead": {
+      "main": [
+        [
+          {
+            "node": "If1- Stop Words",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields-update LEAD": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields-Mapping - update LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields-Mapping - update LEAD": {
+      "main": [
+        [
+          {
+            "node": "Update a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model-create LEAD": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields-create LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields-create LEAD": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields-Mapping - create LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields-Mapping - create LEAD": {
+      "main": [
+        [
+          {
+            "node": "Create a lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a lead": {
+      "main": [
+        [
+          {
+            "node": "If- Stop Words",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If- Stop Words": {
+      "main": [
+        [],
+        [
+          {
+            "node": "If-Duplicate Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1- Stop Words": {
+      "main": [
+        [],
+        [
+          {
+            "node": "If1-Duplicate Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If-Duplicate Check": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1-Duplicate Check": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Init Retry Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Send an SMS/MMS/WhatsApp message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an SMS/MMS/WhatsApp message1": {
+      "main": [
+        []
+      ]
+    },
+    "Set - Execution ID": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request-Search Lead - Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI - Intent Detection": {
+      "main": [
+        [
+          {
+            "node": "Format AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fallback Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Response": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields-update LEAD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fallback Response": {
+      "main": [
+        [
+          {
+            "node": "Init Retry Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Retry Count": {
+      "main": [
+        [
+          {
+            "node": "Prepare Payload - Initial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry Count": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp - TRY2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a lead1": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Update a lead1- Retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log CRM Failure (Partial)": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Payload - Initial": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp - TRY 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp - TRY 1": {
+      "main": [
+        [
+          {
+            "node": "Update a lead1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Increment Retry Count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp - TRY2": {
+      "main": [
+        [
+          {
+            "node": "Update a lead1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Increment Retry Count1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increment Retry Count1": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp - TRY3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp - TRY3": {
+      "main": [
+        [
+          {
+            "node": "Update a lead1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a lead1- Retry": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log CRM Failure (Partial)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "107a648f-07a3-4441-8008-dae9e5fa7425",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a068ff90356583b2f51e8edb675fea9c3df08a602fafa00a4012ed7b39bac777"
+  },
+  "nodeGroups": [],
+  "id": "EDlSUgqv5I4N72Ln",
+  "tags": []
+}
